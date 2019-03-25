@@ -1,3 +1,4 @@
+from fuzzywuzzy import fuzz
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
@@ -58,5 +59,19 @@ def getDateURL(dateString):
   '''
   return f'http://data.gdeltproject.org/gdeltv2/{dateString}.translation.gkg.csv.zip'
 
-def getSchemaHeaders(schema='DataBase/Utils/schema.csv'):
+def getSchemaHeaders(schema='DataCenter/Utils/schema.csv'):
   return list(pd.read_csv(schema, sep='\t', header=None)[0].values)
+
+def formatActors(actors):
+  '''
+  Takes in a list of actors, and returns a lowercase, non-divided version of their name
+  '''
+  if not actors: return None
+  return list(map(lambda x: x.lower(), actors))
+
+def findSimilarity(string1, string2):
+  '''
+  Finds the similarity between two given strings
+  TODO: Think about optimization with a large amount of relevant actors
+  '''
+  return fuzz.token_set_ratio(string1, string2)

@@ -3,31 +3,60 @@ import numpy as pd
 import pygraphviz as pgv
 import matplotlib.pyplot as plt
 
+import DataCenter.Utils.dbutils as utils
+
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
 
-def updateActorGraph(df, actorGraph):
+def updateActorGraph(df, datacenter):
   '''
   updates actor graphs to include new articles
   returns updateActors and newActors, which represent
   items to update and create, respectively
   '''
+  actorGraph = datacenter.actorGraph
+  relevantActors = datacenter.relevantActors
   updateActorList, newActorList = [], []
 
   for ix, data in df.iterrows():
-    url = str(data['DocumentIdentifier'])
-    people = str(data['Persons']).split(';')
-    organizations = str(data['Organizations']).split(';')
+    url, people, organizations, actors, location = extractData(data, relevantActors)
+    if not hasRelevantActor(actors, relevantActors): continue
 
     actorGraph, updateActorList, newActorList = addURLToActors(
       people, url, TYPE_PERSON, actorGraph, updateActorList, newActorList)
     actorGraph, updateActorList, newActorList = addURLToActors(
       organizations, url, TYPE_ORGANIZATION, actorGraph, updateActorList, newActorList)
-
-    actors = people + organizations
     actorGraph = updateActorEdges(actors, url, actorGraph)
 
   return actorGraph, updateActorList, newActorList
+
+def hasRelevantActor(actors, relevantActors):
+  '''
+  Returns True if there is at least one actor that is relevant, False otherwise
+  TODO: Terminate early once one is found
+  '''
+  if not relevantActors: return True
+  return bool(sum([isRelevantActor(actor, relevantActors) for actor in actors]))
+
+def isRelevantActor(actor, relevantActors, threshold=60):
+  '''
+  Returns True if there is one actor in relevantActors with a 
+  similarity score of at least 0.8, False otherwise
+  '''
+  similarities = [utils.findSimilarity(actor, relevantActor) > threshold for relevantActor in relevantActors]
+  return bool(sum(similarities))
+
+def extractData(data, relevantActors):
+  '''
+  Extracts the url, people, organizations, and location from
+  one row in the GKG dataframe
+  '''
+  url = str(data['DocumentIdentifier'])
+  people = str(data['Persons']).split(';'), relevantActors
+  organizations = str(data['Organizations']).split(';'), relevantActors
+  locations = str(data['Locations']).split(';')
+  actors = people + organizations
+  return (url, people, organizations, actors, locations)
 
 def createNewActor(name, url, actorType, actorGraph):
   '''
@@ -97,13 +126,19 @@ def createEdgeList(start_node, connections):
   return [(start_node, end_node) for end_node in connections.keys()]
 
 def createPGVGraph(actorGraph):
+  '''
+  Creates a PGV Graph from an actorGraph
+  '''
   G = pgv.AGraph()
   for a in actorGraph.keys():
     G.add_node(a)
     G.add_edges_from(createEdgeList(a, actorGraph[a]['connections']))
   return G
 
-def visualizePGVGraph(PGVGraph):
+def visualizePGVGraph(PGVGraph, outfp='network.svg'):
+  '''
+  Visualizes the PKG Graph
+  '''
   PGVGraph.layout()
-  PGVGraph.draw('network.svg')
+  PGVGraph.draw(outfp)
   return
