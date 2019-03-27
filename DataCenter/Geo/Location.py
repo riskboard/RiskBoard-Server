@@ -5,7 +5,7 @@ class Location():
   Latitude (Float): Location Latitude
   Longitude (Float): Location Longitude
   '''
-  def __init__(self, name, latitude, longitude):
+  def __init__(self, name, latitude, longitude, **kwds):
     '''
     Initializes a Location class
     '''
@@ -21,7 +21,7 @@ class Location():
     Moves the position of the location.
     Returns True if successful, False otherwise
     '''
-    if self._validate(name, latitude, longitude):
+    if self._validate(self.name, latitude, longitude):
       self.latitude = latitude
       self.longitude = longitude
       return True

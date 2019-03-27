@@ -1,30 +1,30 @@
 from DataCenter.Geo.Location import Location
+from DataCenter.Geo.Geography import Geography
 from DataCenter.Geo import geoutils
 
-class Region():
+class GeoCircle(Geography):
   '''
-  Defines the region class. A region is defined as
+  Defines the GeoCircle class. A GeoCircle is defined as
   by a central Location class and a range (describing the radius
   of the surrounding area, in units).
 
   TODO: support 'miles' and 'km'
   '''
-  def __init__(self, coord, name, radius, unit='km', description=None):
+  def __init__(self, center, radius, **kwds):
     '''
     Initializes the Region class around the center with
     the specified radius
     '''
-    self.center = Location(name, coord[0], coord[1])
     self.radius = radius
-    self.description = description
-    self.name = name
+    self.center = Location(name, center[0], center[1])
+    super().__init__(**kwds)
 
-  def includes(self, coord):
+  def includes(self, location):
     '''
     Returns True if the coordinate is within the region,
     False otherwise
     '''
-    return geoutils.distance(self.center, coord) < self.radius
+    return geoutils.distance(self.center, (location.latitude, location.longitude)) < self.radius
 
   def setCenter(self, coord):
     '''
@@ -37,15 +37,3 @@ class Region():
     Sets the new radius of the region
     '''
     self.radius = radius
-
-  def setName(self, name):
-    '''
-    Sets the name of the region
-    '''
-    self.name = name
-
-  def setDescription(self, description):
-    '''
-    Sets the description of the region
-    '''
-    self.description = description

@@ -1,9 +1,10 @@
 import pandas as pd
-import numpy as pd
+import numpy as np
 import pygraphviz as pgv
 import matplotlib.pyplot as plt
 
 import DataCenter.Utils.dbutils as utils
+from DataCenter.Geo.GDeltLocation import GDeltLocation
 
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
@@ -16,10 +17,13 @@ def updateActorGraph(df, datacenter):
   '''
   actorGraph = datacenter.actorGraph
   relevantActors = datacenter.relevantActors
+  geographies = datacenter.geographies
   updateActorList, newActorList = [], []
 
   for ix, data in df.iterrows():
-    url, people, organizations, actors, location = extractData(data, relevantActors)
+    url, people, organizations, actors, locations = extractData(data)
+    if not hasLocationInGeographies(locations, geographies): continue
+    print('Found Relevant Location!')
     if not hasRelevantActor(actors, relevantActors): continue
 
     actorGraph, updateActorList, newActorList = addURLToActors(
@@ -28,7 +32,27 @@ def updateActorGraph(df, datacenter):
       organizations, url, TYPE_ORGANIZATION, actorGraph, updateActorList, newActorList)
     actorGraph = updateActorEdges(actors, url, actorGraph)
 
+  print(updateActorList, newActorList)
   return actorGraph, updateActorList, newActorList
+
+def hasLocationInGeographies(locations, geographies):
+  '''
+  Returns True if locations has a location in geographies
+  '''
+  if not geographies or not locations: return True
+  return bool(np.sum([isLocationInGeographies(loc, geographies) for loc in locations]))
+
+def isLocationInGeographies(location, geographies):
+  '''
+  Returns True if location is in the geographies
+  '''
+  return bool(np.sum([inGeography(location, geo) for geo in geographies]))
+
+def inGeography(location, geography):
+  '''
+  Returns True if location is in the geography
+  '''
+  return geography.includes(location)
 
 def hasRelevantActor(actors, relevantActors):
   '''
@@ -36,27 +60,46 @@ def hasRelevantActor(actors, relevantActors):
   TODO: Terminate early once one is found
   '''
   if not relevantActors: return True
-  return bool(sum([isRelevantActor(actor, relevantActors) for actor in actors]))
+  return bool(np.sum([isRelevantActor(actor, relevantActors) for actor in actors]))
 
 def isRelevantActor(actor, relevantActors, threshold=60):
   '''
   Returns True if there is one actor in relevantActors with a 
   similarity score of at least 0.8, False otherwise
   '''
+  if not relevantActors: return True
   similarities = [utils.findSimilarity(actor, relevantActor) > threshold for relevantActor in relevantActors]
-  return bool(sum(similarities))
+  return bool(np.sum(similarities))
 
-def extractData(data, relevantActors):
+def extractData(data):
   '''
   Extracts the url, people, organizations, and location from
   one row in the GKG dataframe
   '''
   url = str(data['DocumentIdentifier'])
-  people = str(data['Persons']).split(';'), relevantActors
-  organizations = str(data['Organizations']).split(';'), relevantActors
-  locations = str(data['Locations']).split(';')
+  people = str(data['Persons']).split(';')
+  organizations = str(data['Organizations']).split(';')
+  locations = extractLocations(data)
   actors = people + organizations
   return (url, people, organizations, actors, locations)
+
+def extractLocations(data):
+  '''
+  Exracts locations from a row in data
+  '''
+  if str(data['Locations']) == 'nan':
+    return None
+  else:
+    location_infos = [location.split('#') for location in str(data['Locations']).split(';')]
+    locations = [rawToGDeltLocation(loc) for loc in location_infos]
+  return locations
+
+def rawToGDeltLocation(loc):
+  '''
+  Converts a location in GDelt to a GDeltLocation class
+  '''
+  loc_type, name, latitude, longitude = loc[0], loc[1], float(loc[4]), float(loc[5])
+  return GDeltLocation(type=loc_type, name=name, latitude=latitude, longitude=longitude)
 
 def createNewActor(name, url, actorType, actorGraph):
   '''

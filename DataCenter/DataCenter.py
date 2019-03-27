@@ -10,13 +10,13 @@ class DataCenter():
   a client's needs, tailored to their interests and regions
   '''
 
-  def __init__(self, startDate, endDate, regions=None, relevantActors=None):
+  def __init__(self, startDate, endDate, geographies=None, relevantActors=None):
     '''
     Initializes a new DataCenter populated with data
     from the specified start date (inclusive) to the end date (exclusive)
 
-    The data will be populated by data from specified regions, as well
-    as the specified actors involved in each region. Regions are defined
+    The data will be populated by data from specified geographies, as well
+    as the specified actors involved in each geographies. Geographies are defined
     by the Region class.
 
     If no actors are specified, all actors will be included.
@@ -29,11 +29,10 @@ class DataCenter():
     '''
 
     # initialize regions
-    self.regions = regions
+    self.geographies = geographies
 
     # initialize actors
     self.relevantActors = utils.formatActors(relevantActors)
-    print(f'relevant actors: {self.relevantActors}')
 
     # initialize actor graph
     self.actorGraph = {}
