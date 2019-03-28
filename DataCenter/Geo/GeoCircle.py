@@ -16,9 +16,9 @@ class GeoCircle(Geography):
     Initializes the Region class around the center with
     the specified radius
     '''
-    self.radius = radius
-    self.center = Location(name, center[0], center[1])
     super().__init__(**kwds)
+    self.radius = radius
+    self.center = Location(self.name, center[0], center[1])
 
   def includes(self, location):
     '''
@@ -31,7 +31,7 @@ class GeoCircle(Geography):
     '''
     Moves the center location to the specified new location
     '''
-    self.center.move(coord)
+    self.center.move(coord[0], coord[1])
 
   def setRadius(self, radius):
     '''
