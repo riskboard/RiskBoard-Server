@@ -8,6 +8,7 @@ class GeoRectangle(Geography):
   which describe the boundaries of the GeoRectangle
 
   TODO: support 'miles' and 'km'
+  TODO: Interface with MongoDB
   '''
   def __init__(self, boundaries, **kwds):
     '''

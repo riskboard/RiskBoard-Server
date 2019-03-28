@@ -4,6 +4,8 @@ class Location():
   Name (String): Location Name
   Latitude (Float): Location Latitude
   Longitude (Float): Location Longitude
+
+  TODO: Interface with MongoDB
   '''
   def __init__(self, name, latitude, longitude, **kwds):
     '''

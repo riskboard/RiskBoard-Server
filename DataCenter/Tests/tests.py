@@ -1,8 +1,12 @@
-# TODO: Write tests for helper functions in database-utils.py and graph.py
 def runUtilTests():
   print('   Running Util Tests...')
   assert True
   print('   Util Tests Passed\n')
+
+def runGeoTests():
+  print('   Running Geo Tests...')
+  assert True
+  print('   Geo Tests Passed\n')
 
 def runGraphTests():
   print('   Running Graph Tests...')

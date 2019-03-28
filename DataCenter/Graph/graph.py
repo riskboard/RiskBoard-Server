@@ -2,38 +2,46 @@ import pandas as pd
 import numpy as np
 import pygraphviz as pgv
 import matplotlib.pyplot as plt
+import logging
 
 import DataCenter.Utils.dbutils as utils
+from DataCenter.Utils.SE import SE
 from DataCenter.Geo.GDeltLocation import GDeltLocation
+from DataCenter.Actor.Actor import Actor
+from DataCenter.Actor.ActorConnection import ActorConnection
+from DataCenter.Article.Article import Article
 
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
 
-def updateActorGraph(df, datacenter):
+def updateGraph(df, datacenter):
   '''
   updates actor graphs to include new articles
   returns updateActors and newActors, which represent
   items to update and create, respectively
   '''
-  actorGraph = datacenter.actorGraph
+  print('* Reading new data frame...')
+  se = SE()
+  graph = datacenter.graph
   relevantActors = datacenter.relevantActors
   geographies = datacenter.geographies
-  updateActorList, newActorList = [], []
 
   for ix, data in df.iterrows():
-    url, people, organizations, actors, locations = extractData(data)
+    actorIDs, actors, article, locations = extractData(data)
     if not hasLocationInGeographies(locations, geographies): continue
-    print('Found Relevant Location!')
     if not hasRelevantActor(actors, relevantActors): continue
 
-    actorGraph, updateActorList, newActorList = addURLToActors(
-      people, url, TYPE_PERSON, actorGraph, updateActorList, newActorList)
-    actorGraph, updateActorList, newActorList = addURLToActors(
-      organizations, url, TYPE_ORGANIZATION, actorGraph, updateActorList, newActorList)
-    actorGraph = updateActorEdges(actors, url, actorGraph)
+    graph, updateActorIdList, newActorIdList = attachActorsToGraph(actors, graph)
 
-  print(updateActorList, newActorList)
-  return actorGraph, updateActorList, newActorList
+    # updates actors with new articles
+    newSE, graph= addArticleToActors(actors, article, graph)
+    se.updateSE(newSE)
+
+    # update edges
+    newSE, graph = updateActorEdges(actors, article, graph)
+    se.updateSE(newSE)
+
+  return se, graph, updateActorIdList, newActorIdList
 
 def hasLocationInGeographies(locations, geographies):
   '''
@@ -68,7 +76,7 @@ def isRelevantActor(actor, relevantActors, threshold=60):
   similarity score of at least 0.8, False otherwise
   '''
   if not relevantActors: return True
-  similarities = [utils.findSimilarity(actor, relevantActor) > threshold for relevantActor in relevantActors]
+  similarities = [utils.findSimilarity(actor.name, relevantActor) > threshold for relevantActor in relevantActors]
   return bool(np.sum(similarities))
 
 def extractData(data):
@@ -77,20 +85,39 @@ def extractData(data):
   one row in the GKG dataframe
   '''
   url = str(data['DocumentIdentifier'])
-  people = str(data['Persons']).split(';')
-  organizations = str(data['Organizations']).split(';')
-  locations = extractLocations(data)
-  actors = people + organizations
-  return (url, people, organizations, actors, locations)
+  article = extractArticle(url)
 
-def extractLocations(data):
+  peopleNames = str(data['Persons']).split(';')
+  peopleIDs, people = extractActors(TYPE_PERSON, peopleNames)
+
+  orgNames = str(data['Organizations']).split(';')
+  orgIDs, orgs = extractActors(TYPE_PERSON, orgNames)
+
+  locationStr = str(data['Locations'])
+  locations = extractLocations(locationStr)
+
+  actorIDs, actors = peopleIDs + orgIDs, people + orgs
+  return actorIDs, actors, article, locations
+
+def extractActors(actorType, actorNames):
+  actorDats = [extractActor(actorType, a) for a in actorNames]
+  return [list(t) for t in zip(*actorDats)]
+
+def extractActor(actorType, actorName):
+  actor = Actor(TYPE_PERSON, actorName)
+  return actor.id, actor
+
+def extractArticle(url):
+  return Article(url)
+
+def extractLocations(locationStr):
   '''
   Exracts locations from a row in data
   '''
-  if str(data['Locations']) == 'nan':
+  if locationStr == 'nan':
     return None
   else:
-    location_infos = [location.split('#') for location in str(data['Locations']).split(';')]
+    location_infos = [location.split('#') for location in locationStr.split(';')]
     locations = [rawToGDeltLocation(loc) for loc in location_infos]
   return locations
 
@@ -101,66 +128,52 @@ def rawToGDeltLocation(loc):
   loc_type, name, latitude, longitude = loc[0], loc[1], float(loc[4]), float(loc[5])
   return GDeltLocation(type=loc_type, name=name, latitude=latitude, longitude=longitude)
 
-def createNewActor(name, url, actorType, actorGraph):
+def attachActorsToGraph(actors, graph):
   '''
-  Creates a new actor based on the name and article url
+  Attaches a list of actors to the graph
   '''
-  actorGraph[name] = {
-    'name': name,
-    'type': actorType,
-    'connections': {},
-    'urls': [url],
-    'sentiment': 0,
-  }
-  return actorGraph
+  updateActorList, newActorList = [], []
+  for a in actors:
+    if a.id in graph:
+      updateActorList.append(a.id)
+      continue
+    graph, newActorList = attachNewActorToGraph(a, graph, newActorList)
+  return graph, updateActorList, newActorList
 
-def addURLToActors(names, url, actorType, actorGraph, updateActorList, newActorList):
+def attachNewActorToGraph(actor, graph, newActorList):
   '''
-  Adds the urls to the existing actorGraph
+  Attaches the new actor to the graph
+  '''
+  graph[actor.id] = actor
+  newActorList.append(actor.id)
+  return graph, newActorList
+
+def addArticleToActors(actors, article, graph):
+  '''
+  Adds the article to the existing graph
   If the name is not currently within the graph, creates a new object
   '''
-  for name in names:
-    if name == 'nan': continue
-    if name in actorGraph:
-      actorGraph[name]['urls'].append(url)
-      updateActorList.append(name)
-    else:
-      actorGraph = createNewActor(name, url, actorType, actorGraph)
-      newActorList.append(name)
-  return actorGraph, updateActorList, newActorList
+  se = SE()
+  for actor in actors:
+    if actor.id not in graph:
+      error = f'(addArticleToActors): actor {actor.id} not in graph'
+      logging.error(error)
+      se = SE(False, [error])
+      se.updateSE(se)
+    graph[actor.id].addArticle(article)
+  return se, graph
 
-def updateActorEdges(actors, url, actorGraph):
+def updateActorEdges(actors, article, graph):
   '''
   Creates all edges between actors in the url
   '''
+  se = SE()
   for a1 in actors:
     for a2 in actors:
-      if a1 == 'nan' or a2 == 'nan': continue
-      if a1 == a2: continue
-      if a2 in actorGraph[a1]['connections']:
-        actorGraph = updateActorEdge(a1, a2, url, actorGraph)
-      else:
-        actorGraph = createActorEdge(a1, a2, url, actorGraph)
-  return actorGraph
-
-def updateActorEdge(a1, a2, url, actorGraph):
-  '''
-  Updates an existing connection between two actors
-  '''
-  connection = actorGraph[a1]['connections'][a2]
-  connection['urls'].append(url)
-  connection['strength'] += 1
-  return actorGraph
-
-def createActorEdge(a1, a2, url, actorGraph):
-  '''
-  Creates a new connection between two actors
-  '''
-  actorGraph[a1]['connections'][a2] = {
-    'urls': [url],
-    'strength': 1
-  }
-  return actorGraph
+      if a1.id == a2.id: continue
+      newSE = a1.updateOrCreateConnection(a2, article)
+      se.updateSE(newSE)
+  return se, graph
 
 def createEdgeList(start_node, connections):
   '''
@@ -168,14 +181,14 @@ def createEdgeList(start_node, connections):
   '''
   return [(start_node, end_node) for end_node in connections.keys()]
 
-def createPGVGraph(actorGraph):
+def createPGVGraph(graph):
   '''
-  Creates a PGV Graph from an actorGraph
+  Creates a PGV Graph from an graph
   '''
   G = pgv.AGraph()
-  for a in actorGraph.keys():
-    G.add_node(a)
-    G.add_edges_from(createEdgeList(a, actorGraph[a]['connections']))
+  for actorID in graph.keys():
+    G.add_node(actorID)
+    G.add_edges_from(createEdgeList(actorID, graph[actorID].connections))
   return G
 
 def visualizePGVGraph(PGVGraph, outfp='network.svg'):

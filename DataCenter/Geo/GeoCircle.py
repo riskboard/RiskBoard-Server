@@ -9,6 +9,7 @@ class GeoCircle(Geography):
   of the surrounding area, in units).
 
   TODO: support 'miles' and 'km'
+  TODO: Interface with MongoDB
   '''
   def __init__(self, center, radius, **kwds):
     '''

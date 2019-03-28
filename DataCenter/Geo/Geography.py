@@ -1,6 +1,11 @@
 from DataCenter.Geo.Location import Location
 
 class Geography():
+  '''
+  Defines a Geography class
+
+  TODO: Interface with MongoDB
+  '''
   def __init__(self, name, unit='km', description=None, **kwds):
     '''
     Initializes the Region class around the center with

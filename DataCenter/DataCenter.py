@@ -2,12 +2,15 @@ import pandas as pd
 import DataCenter.Utils.dbutils as utils
 import DataCenter.Graph.graph as graph
 import DataCenter.Tests.tests as tests
+from DataCenter.Utils.SE import SE
 
 class DataCenter():
   '''
   Creates a DataCenter.
   A DataCenter is a MongoDB instance specific to
   a client's needs, tailored to their interests and regions
+
+  TODO: Interface with MongoDB
   '''
 
   def __init__(self, startDate, endDate, geographies=None, relevantActors=None):
@@ -27,6 +30,8 @@ class DataCenter():
 
     TODO: Filter by regions
     '''
+    # initialize success error object
+    self.se = SE()
 
     # initialize regions
     self.geographies = geographies
@@ -35,17 +40,20 @@ class DataCenter():
     self.relevantActors = utils.formatActors(relevantActors)
 
     # initialize actor graph
-    self.actorGraph = {}
+    self.graph = {}
 
     # initialize the headers of the dataframe
     self.headers = utils.getSchemaHeaders()
+
+    # run unit tests
+    tests.runTests()
 
     # get dates to initialize the database
     initDateStrings = utils.getDateRangeStrings(startDate, endDate)
     [self.updateDB(dateString) for dateString in initDateStrings]
 
-    # run unit tests
-    tests.runTests()
+    print (self.se.errors)
+    print (self.graph)
 
 
   def updateDB(self, dateString):
@@ -61,7 +69,7 @@ class DataCenter():
       df.columns = self.headers
 
       # update actor Graph
-      self.actorGraph, updateActorList, newActorList = graph.updateActorGraph(df, self)
+      self.se, self.graph, updateActorIdList, newActorIdList = graph.updateGraph(df, self)
     except:
       return
 
@@ -69,7 +77,7 @@ class DataCenter():
     '''
     Visualizes the actor graph in the database
     '''
-    PGVGraph = graph.createPGVGraph(self.actorGraph)
+    PGVGraph = graph.createPGVGraph(self.graph)
     return graph.visualizePGVGraph(PGVGraph)
 
   def addRegion(self, region):

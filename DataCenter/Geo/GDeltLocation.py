@@ -5,6 +5,8 @@ class GDeltLocation(Location):
   Implements the GDeltLocation class, which
   creates a location based on the information given in
   GDelt GKG
+
+  TODO: Interface with MongoDB
   '''
   def __init__(self, type, **kwds):
     type_dict = {

@@ -75,3 +75,11 @@ def findSimilarity(string1, string2):
   TODO: Think about optimization with a large amount of relevant actors
   '''
   return fuzz.token_set_ratio(string1, string2)
+
+def updateSE(SE, newSE):
+  '''
+  Updates Success and Errors
+  '''
+  SE[0] = newSE[0] and SE[0]
+  if newSE[1]: SE[1] += newSE(1)
+  return SE
