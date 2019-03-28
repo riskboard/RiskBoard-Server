@@ -1,6 +1,7 @@
 import pandas as pd
 import DataCenter.Utils.dbutils as utils
 import DataCenter.Graph.graph as graph
+from DataCenter.Graph.extraction import extractData
 import DataCenter.Tests.tests as tests
 from DataCenter.Utils.SE import SE
 
@@ -13,7 +14,7 @@ class DataCenter():
   TODO: Interface with MongoDB
   '''
 
-  def __init__(self, startDate, endDate, geographies=None, relevantActors=None):
+  def __init__(self, startDate, endDate, relevantGeo=None, relevantActors=None):
     '''
     Initializes a new DataCenter populated with data
     from the specified start date (inclusive) to the end date (exclusive)
@@ -30,11 +31,19 @@ class DataCenter():
 
     TODO: Filter by regions
     '''
+    print('INITIALIZING DATA CENTER')
     # initialize success error object
     self.se = SE()
 
+    # initialize data analysis variables
+    self.totalDataCount = 0
+    self.relevantDataCount = 0
+
+    # initialize the headers of the dataframe
+    self.headers = utils.getSchemaHeaders()
+
     # initialize regions
-    self.geographies = geographies
+    self.relevantGeo = relevantGeo
 
     # initialize actors
     self.relevantActors = utils.formatActors(relevantActors)
@@ -42,36 +51,77 @@ class DataCenter():
     # initialize actor graph
     self.graph = {}
 
-    # initialize the headers of the dataframe
-    self.headers = utils.getSchemaHeaders()
+    # initialize article list
+    self.articleList = []
 
     # run unit tests
     tests.runTests()
 
     # get dates to initialize the database
     initDateStrings = utils.getDateRangeStrings(startDate, endDate)
-    [self.updateDB(dateString) for dateString in initDateStrings]
+    updateSE = [self.updateDC(dateString) for dateString in initDateStrings]
+    map(lambda s: self.se.updateSE(s), updateSE)
 
-    print (self.se.errors)
-    print (self.graph)
+    print('DataCenter Initialized')
 
+    print('\nInformation:')
+    print(f'* Total Data Count: {self.totalDataCount} articles processed')
+    print(f'* Relevant Information: {self.relevantDataCount} articles stored')
+    print(f'* Total Percentage: {self.relevantDataCount/self.totalDataCount:.0%}')
 
-  def updateDB(self, dateString):
+    print(f'\nErrors: ')
+    [print(f'* Error: {err}') for err in self.se.errors]
+
+  def updateDC(self, dateString):
     '''
     Updates the database with information from a single day
     '''
-    try:
-      # get data url
-      url = utils.getDateURL(dateString)
+    print(f'* Updating {dateString} Information...')
+    se = SE()
 
+    # get data url
+    url = utils.getDateURL(dateString)
+
+    try:
       # read in data file
       df = pd.read_csv(url, compression='zip', encoding='latin1', header=None, sep='\t')
       df.columns = self.headers
+    except Exception as e:
+      return SE(False, [e])
+
+    dataCount, relevantCount = 0, 0
+    for ix, data in df.iterrows():
+      dataCount += 1
+      newSE = self.updateRow(data)
+      if newSE.success:
+        relevantCount += 1
+      se.updateSE(newSE)
+
+    print(f'  {dateString} processed.')
+    print(f'\n* {dateString} Information: ')
+    print(f'** Relevant Data: {relevantCount/dataCount:.0%}')
+    return se
+
+
+  def updateRow(self, data):
+    try:
+      se = SE()
+
+      actorIDs, actors, locations, article = extractData(data)
+      if not utils.isRelevantArticle(article, self.relevantActors, self.relevantGeo): return SE(success=False)
 
       # update actor Graph
-      self.se, self.graph, updateActorIdList, newActorIdList = graph.updateGraph(df, self)
-    except:
-      return
+      newSE, self.graph, updateActorIdList, newActorIdList = graph.updateGraph(actors, article, self.graph)
+      se.updateSE(newSE)
+
+      # TODO: Update actors in updateActorIDList and create newActorIds
+
+      # udpate articleList
+      self.articleList.append(article)
+      return se
+    except Exception as e:
+      se = SE(False, [e])
+      return se
 
   def visualizeGraph(self):
     '''

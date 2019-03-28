@@ -8,6 +8,7 @@ class Actor():
   an organization, a person, or a notable group
 
   TODO: Interface with MongoDB
+  TODO: Add actor location
   '''
   actorID = 0
 

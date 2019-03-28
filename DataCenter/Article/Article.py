@@ -5,13 +5,19 @@ class Article():
   a news article
 
   TODO: Interface with MongoDB
+  TODO: Write the parse_url function
   '''
-  def __init__(self, url, **kwds):
+  def __init__(self, url, actorIDs=[], actorNames=[], peopleIDs=[], orgIDs=[], locations=[], **kwds):
     '''
     Initializes an Article class from a url.
     '''
     self.url = url
-    self.summary, self.actors, self.keywords = self._parse_url(url)
+    self.actorIDs = actorIDs
+    self.actorNames = actorNames
+    self.peopleIDs = peopleIDs
+    self.orgIDs = orgIDs
+    self.locations = locations
+    self.keywords = self._parse_url(url)
 
   def _parse_url(self, url):
     '''

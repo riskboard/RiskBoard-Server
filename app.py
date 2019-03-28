@@ -21,7 +21,7 @@ if __name__ == '__main__':
   brazil = GeoRectangle(boundaries=(north, south, east, west), name='Brazil')
 
   print('***INITIALIZING DATA CENTER***')
-  db = DataCenter(start_date, end_date, geographies=[brazil], relevantActors=actors)
+  db = DataCenter(start_date, end_date, relevantGeo=[brazil], relevantActors=actors)
   print('Finished Initializing\n')
 
   print('Visualizing DataCenter...')
