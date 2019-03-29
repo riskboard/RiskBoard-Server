@@ -4,93 +4,57 @@ import pygraphviz as pgv
 import matplotlib.pyplot as plt
 import logging
 
-from DataCenter.Utils.SE import SE
+from DataCenter.Actor.Actor import Actor
 from DataCenter.Actor.ActorConnection import ActorConnection
-from DataCenter.Graph.extraction import extractData
 
-def updateGraph(actors, article, graph):
+def updateGraph(articleID, actorIDs, db):
   '''
   updates actor graphs to include new articles
   returns updateActors and newActors, which represent
   items to update and create, respectively
   '''
-  se = SE()
-  graph, updateActorIdList, newActorIdList = attachActorsToGraph(actors, graph)
+  logging.log(1, 'updateGraph')
+
   # updates actors with new articles
-  newSE, graph= addArticleToActors(actors, article, graph)
-  se.updateSE(newSE)
+  if not addArticleToActors(articleID, actorIDs, db): return False
+
   # update edges
-  newSE, graph = updateActorEdges(actors, article, graph)
-  se.updateSE(newSE)
-  return se, graph, updateActorIdList, newActorIdList
+  if not updateActorEdges(articleID, actorIDs, db): return False
 
-def attachActorsToGraph(actors, graph):
-  '''
-  Attaches a list of actors to the graph
-  '''
-  updateActorList, newActorList = [], []
-  for a in actors:
-    if a.id in graph:
-      updateActorList.append(a.id)
-      continue
-    graph, newActorList = attachNewActorToGraph(a, graph, newActorList)
-  return graph, updateActorList, newActorList
+  return True
 
-def attachNewActorToGraph(actor, graph, newActorList):
-  '''
-  Attaches the new actor to the graph
-  '''
-  graph[actor.id] = actor
-  newActorList.append(actor.id)
-  return graph, newActorList
-
-def addArticleToActors(actors, article, graph):
+def addArticleToActors(articleID, actorIDs, db):
   '''
   Adds the article to the existing graph
   If the name is not currently within the graph, creates a new object
   '''
-  se = SE()
-  for actor in actors:
-    if actor.id not in graph:
-      error = f'(addArticleToActors): actor {actor.id} not in graph'
-      logging.error(error)
-      se = SE(False, [error])
-      se.updateSE(se)
-    graph[actor.id].addArticle(article)
-  return se, graph
+  logging.log(2, 'addArticleToActors')
+  for a in actorIDs:
+    query = {'_id': a}
+    actor = db.actor.find_one(query)
+    if not actor:
+      logging.error('Actor does not exist.')
+      return False
+    result = db.actor.update_one(query, {'$push': { 'articleIDs': articleID}})
+    if not result.acknowledged:
+      logging.error('graph.addArticleToActors: push not acknowledged')
+      return False
+  return True
 
-def updateActorEdges(actors, article, graph):
+def updateActorEdges(articleID, actorIDs, db):
   '''
   Creates all edges between actors in the url
   '''
-  se = SE()
-  for a1 in actors:
-    for a2 in actors:
-      if a1.id == a2.id: continue
-      newSE = a1.updateOrCreateConnection(a2, article)
-      se.updateSE(newSE)
-  return se, graph
-
-def createEdgeList(start_node, connections):
-  '''
-  Converts connections dict to edge list for networkx
-  '''
-  return [(start_node, end_node) for end_node in connections.keys()]
-
-def createPGVGraph(graph):
-  '''
-  Creates a PGV Graph from an graph
-  '''
-  G = pgv.AGraph()
-  for actorID in graph.keys():
-    G.add_node(actorID)
-    G.add_edges_from(createEdgeList(actorID, graph[actorID].connections))
-  return G
-
-def visualizePGVGraph(PGVGraph, outfp='network.svg'):
-  '''
-  Visualizes the PKG Graph
-  '''
-  PGVGraph.layout()
-  PGVGraph.draw(outfp)
-  return
+  logging.log(2, 'updateActorEdges')
+  if not len(actorIDs) or len(actorIDs)==1: return True
+  for ix, a1 in enumerate(actorIDs):
+    for a2 in actorIDs[ix+1:]:
+      query1, query2 = {'_id': a1}, {'_id': a2}
+      actor1Obj, actor2Obj = db.actor.find_one(query1), db.actor.find_one(query2)
+      if not actor1Obj or not actor2Obj:
+        logging.error('graph.updateActorEdges: one of the actors was not found')
+        return False
+      actor1Obj['_db'], actor2Obj['_db'] = db, db
+      actor1, actor2 = Actor.fromDB(actor1Obj), Actor.fromDB(actor2Obj)
+      if not actor1.updateOrCreateConnection(actor2, articleID): return False
+  return True

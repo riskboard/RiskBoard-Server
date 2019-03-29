@@ -1,3 +1,4 @@
+import logging
 from DataCenter.Geo.Location import Location
 
 class Geography():
@@ -6,7 +7,9 @@ class Geography():
 
   TODO: Interface with MongoDB
   '''
-  def __init__(self, name, unit='km', description=None, **kwds):
+  _collection = 'geography'
+
+  def __init__(self, name, unit='km', description=None, db=None, **kwds):
     '''
     Initializes the Region class around the center with
     the specified radius
@@ -14,6 +17,8 @@ class Geography():
     self.unit = unit
     self.description = description
     self.name = name
+
+    if db: self.storeDB(db)
 
   def setName(self, name):
     '''
@@ -33,3 +38,24 @@ class Geography():
     Overrided by inherited classes.
     '''
     return True
+
+  def storeDB(self, db):
+    '''
+    Stores in database
+    '''
+    if not db:
+      logging.error('No DB provided')
+      return False
+    self._mongoID = db[Location._collection].insert_one(self._serialize()).inserted_id
+    self._id = str(self._mongoID)
+    return self._id
+
+  def _serialize(self, format='bson'):
+    '''
+    Serializes the geography
+    '''
+    return {
+      'unit': self.unit,
+      'description': self.description,
+      'name': self.name
+    }

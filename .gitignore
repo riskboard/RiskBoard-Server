@@ -1,8 +1,9 @@
 # Riskboard specific
-data/
+data/db/*
 env/
 .ipynb_checkpoints/
 *.svg
+temp/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

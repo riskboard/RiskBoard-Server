@@ -20,9 +20,7 @@ if __name__ == '__main__':
   west = Point.parse_degrees(73, 58, 58.19, 'W')
   brazil = GeoRectangle(boundaries=(north, south, east, west), name='Brazil')
 
-  print('***INITIALIZING DATA CENTER***')
   db = DataCenter(start_date, end_date, relevantGeo=[brazil], relevantActors=actors)
-  print('Finished Initializing\n')
 
   print('Visualizing DataCenter...')
   db.visualizeGraph()

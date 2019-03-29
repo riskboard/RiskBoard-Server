@@ -1,9 +1,11 @@
 import pandas as pd
+import logging
+from pymongo import MongoClient
+
 import DataCenter.Utils.dbutils as utils
 import DataCenter.Graph.graph as graph
-from DataCenter.Graph.extraction import extractData
+from DataCenter.Graph.extraction import extractAndFilterData
 import DataCenter.Tests.tests as tests
-from DataCenter.Utils.SE import SE
 
 class DataCenter():
   '''
@@ -31,9 +33,18 @@ class DataCenter():
 
     TODO: Filter by regions
     '''
+    # set up logging to file - see previous section for more details
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    filename='temp/datacenter.log',
+                    filemode='w')
+  
     print('INITIALIZING DATA CENTER')
-    # initialize success error object
-    self.se = SE()
+
+    # initializing DB client connection
+    self._client = MongoClient()
+    self._db = self._client.test_database
 
     # initialize data analysis variables
     self.totalDataCount = 0
@@ -48,87 +59,74 @@ class DataCenter():
     # initialize actors
     self.relevantActors = utils.formatActors(relevantActors)
 
-    # initialize actor graph
-    self.graph = {}
-
-    # initialize article list
-    self.articleList = []
-
     # run unit tests
     tests.runTests()
 
     # get dates to initialize the database
     initDateStrings = utils.getDateRangeStrings(startDate, endDate)
-    updateSE = [self.updateDC(dateString) for dateString in initDateStrings]
-    map(lambda s: self.se.updateSE(s), updateSE)
+    [self.updateDC(dateString) for dateString in initDateStrings]
 
     print('DataCenter Initialized')
+
+    print('Logging information: log.txt')
 
     print('\nInformation:')
     print(f'* Total Data Count: {self.totalDataCount} articles processed')
     print(f'* Relevant Information: {self.relevantDataCount} articles stored')
     print(f'* Total Percentage: {self.relevantDataCount/self.totalDataCount:.0%}')
 
-    print(f'\nErrors: ')
-    [print(f'* Error: {err}') for err in self.se.errors]
+  def getDataFrame(self, dateString):
+    try:
+      # get data url
+      url = utils.getDateURL(dateString)
+      # read in data file
+      df = pd.read_csv(url, compression='zip', encoding='latin1', header=None, sep='\t')
+      df.columns = self.headers
+      return True, df
+    except Exception as e:
+      logging.log(0, f'DataCenter.getDataFrame: {e}')
+      return False, None
 
   def updateDC(self, dateString):
     '''
     Updates the database with information from a single day
     '''
     print(f'* Updating {dateString} Information...')
-    se = SE()
+    success, df = self.getDataFrame(dateString)
+    if not success: return False
 
-    # get data url
-    url = utils.getDateURL(dateString)
+    totalCount = len(df)
+    print(f'** {totalCount} Rows')
+    relevantCount = 0
 
-    try:
-      # read in data file
-      df = pd.read_csv(url, compression='zip', encoding='latin1', header=None, sep='\t')
-      df.columns = self.headers
-    except Exception as e:
-      return SE(False, [e])
-
-    dataCount, relevantCount = 0, 0
     for ix, data in df.iterrows():
-      dataCount += 1
-      newSE = self.updateRow(data)
-      if newSE.success:
-        relevantCount += 1
-      se.updateSE(newSE)
+      if self.updateRow(data): relevantCount += 1
+
+    self.totalDataCount += totalCount
+    self.relevantDataCount += relevantCount
 
     print(f'  {dateString} processed.')
     print(f'\n* {dateString} Information: ')
-    print(f'** Relevant Data: {relevantCount/dataCount:.0%}')
-    return se
-
+    print(f'** Relevant Data: {relevantCount/totalCount:.0%}')
+    return True
 
   def updateRow(self, data):
     try:
-      se = SE()
+      logging.log(0, 'DataCenter.updateRow')
+      data = extractAndFilterData(data, self.relevantActors, self.relevantGeo, self._db)
+      if not data: return False
 
-      actorIDs, actors, locations, article = extractData(data)
-      if not utils.isRelevantArticle(article, self.relevantActors, self.relevantGeo): return SE(success=False)
+      (articleID, actorIDs, locationIDs) = data
 
       # update actor Graph
-      newSE, self.graph, updateActorIdList, newActorIdList = graph.updateGraph(actors, article, self.graph)
-      se.updateSE(newSE)
+      if not graph.updateGraph(articleID, actorIDs, self._db): return False
 
       # TODO: Update actors in updateActorIDList and create newActorIds
 
-      # udpate articleList
-      self.articleList.append(article)
-      return se
+      return True
     except Exception as e:
-      se = SE(False, [e])
-      return se
-
-  def visualizeGraph(self):
-    '''
-    Visualizes the actor graph in the database
-    '''
-    PGVGraph = graph.createPGVGraph(self.graph)
-    return graph.visualizePGVGraph(PGVGraph)
+      logging.log(0, e)
+      return False
 
   def addRegion(self, region):
     '''

@@ -1,3 +1,5 @@
+import logging
+
 class Location():
   '''
   Defines a location class, which involves
@@ -7,7 +9,9 @@ class Location():
 
   TODO: Interface with MongoDB
   '''
-  def __init__(self, name, latitude, longitude, **kwds):
+  _collection = 'location'
+
+  def __init__(self, name, latitude, longitude, db=None, **kwds):
     '''
     Initializes a Location class
     '''
@@ -17,6 +21,8 @@ class Location():
     self.name = name
     self.latitude = latitude
     self.longitude = longitude
+
+    if db: self.storeDB(db)
 
   def move(self, latitude, longitude):
     '''
@@ -48,3 +54,24 @@ class Location():
       return False
 
     return True
+
+  def storeDB(self, db):
+    '''
+    Stores in database
+    '''
+    if not db:
+      logging.error('No DB provided')
+      return False
+    self._mongoID = db[Location._collection].insert_one(self._serialize()).inserted_id
+    self._id = str(self._mongoID)
+    return self._mongoID
+
+  def _serialize(self, format='bson'):
+    '''
+    Serializes the location class
+    '''
+    return {
+      'name': self.name,
+      'latitude': self.latitude,
+      'longitude': self.longitude
+    }

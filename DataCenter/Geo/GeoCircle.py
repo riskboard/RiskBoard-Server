@@ -38,3 +38,12 @@ class GeoCircle(Geography):
     Sets the new radius of the region
     '''
     self.radius = radius
+
+  def _serialize(self, format='bson'):
+    '''
+    Serializes the GeoCircle class
+    '''
+    main = super()._serialize()
+    main['radius'] = self.radius
+    main['center'] = self.center._serialize()
+    return main

@@ -60,3 +60,14 @@ class GeoRectangle(Geography):
     self.setSouth(south)
     self.setEast(east)
     self.setWest(west)
+
+  def _serialize(self, format='bson'):
+    '''
+    Serializes the GeoRectangle object
+    '''
+    main = super()._serialize()
+    main['north'] = self.north
+    main['south'] = self.south
+    main['east'] = self.east
+    main['west'] = self.west
+    return main

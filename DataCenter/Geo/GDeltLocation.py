@@ -18,3 +18,11 @@ class GDeltLocation(Location):
     }
     self.type = type_dict[type]
     super().__init__(**kwds)
+
+  def _serialize(self, format='bson'):
+    '''
+    Serializes the GDelt Location
+    '''
+    main = super()._serialize()
+    main['type'] = self.type
+    return main
