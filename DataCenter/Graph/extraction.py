@@ -1,5 +1,7 @@
 import numpy as np
+import logging
 from fuzzywuzzy import fuzz
+from metaphone import doublemetaphone
 
 from DataCenter.Article.Article import Article
 from DataCenter.Actor.Actor import Actor
@@ -8,19 +10,21 @@ from DataCenter.Geo.GDeltLocation import GDeltLocation
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
 
-def extractAndFilterData(data, relevantActors, relevantGeo, db):
+def extractAndFilterData(data, relevantActorNames, relevantGeo, db):
   '''
   Extracts the url, people, organizations, and location from
   one row in the GKG dataframe
   '''
-  peopleNames = str(data['Persons']).split(';')
-  orgNames = str(data['Organizations']).split(';')
+  peopleNames = list(filter(lambda x: x!= 'nan', str(data['Persons']).split(';')))
+  orgNames = list(filter(lambda x: x != 'nan', str(data['Organizations']).split(';')))
   actorNames = peopleNames+orgNames
+  if not len(actorNames): return False
 
   locationStr = str(data['Locations'])
   locations = extractLocations(locationStr)
 
-  if not isRelevantArticle(actorNames, locations, relevantActors, relevantGeo): return None
+  if not isRelevantArticle(actorNames, relevantActorNames, locations, relevantGeo): return False
+
   locationIDs = [loc.storeDB(db) for loc in locations]
 
   peopleIDs = extractActorIDs(TYPE_PERSON, peopleNames, db)
@@ -33,11 +37,30 @@ def extractAndFilterData(data, relevantActors, relevantGeo, db):
   return articleID, actorIDs, locationIDs
 
 def extractActorIDs(actorType, actorNames, db):
-  if not len(actorNames): return []
+  '''
+  Queries the database to find actors that have similar metaphone names
+  If there are more than one, uses the highest fuzzy score
+  '''
   return [extractActorID(actorType, a, db) for a in actorNames]
 
 def extractActorID(actorType, actorName, db):
-  return Actor(TYPE_PERSON, actorName, db=db)._mongoID
+  '''
+  Queries the database to find actors that have similar metaphone names
+  If there are more than one, uses the highest fuzzy score
+  '''
+  collection = db[Actor._collectionKey]
+  meta = doublemetaphone(actorName)
+  _a_name = actorName[0] + actorName[1]
+  query = {'_a_name': _a_name}
+  result = collection.find_one(query)
+  
+  if result:
+    print('findone result: ', result)
+    return result['_id']
+  logging.log(3, 'extraction.extractActorID: created new actor')
+  # creates a new Actor
+  actorID = Actor(actorType, actorName, db=db)._mongoID
+  return actorID
 
 def extractLocations(locationStr):
   '''
@@ -64,7 +87,7 @@ def extractArticleID(url, actorIDs, peopleIDs, orgIDs, locations, db):
   '''
   return Article(url, actorIDs, peopleIDs, orgIDs, locations, db)._mongoID
 
-def isRelevantArticle(actorNames, locations, relevantActors, relevantGeo):
+def isRelevantArticle(actorNames, relevantActors, locations, relevantGeo):
   '''
   Returns True if article is relevant
   '''
@@ -89,26 +112,29 @@ def inGeography(location, geography):
   '''
   return geography.includes(location)
 
-def hasRelevantActor(actorNames, relevantActors):
+def hasRelevantActor(actorNames, relevantActorNames):
   '''
-  Returns True if there is at least one actor that is relevant, False otherwise
-  TODO: Terminate early once one is found
+  Returns True if there is a relevant Actor
   '''
-  if not relevantActors: return True
-  return bool(np.sum([isRelevantActor(actor, relevantActors) for actor in actorNames]))
+  if not relevantActorNames: return True
+  return bool(np.sum([isRelevantActor(an, relevantActorNames) for an in actorNames]))
 
-def isRelevantActor(actorName, relevantActors, threshold=60):
+def isRelevantActor(actorName, relevantActorNames, threshold=0.8):
   '''
-  Returns True if there is one actor in relevantActors with a 
-  similarity score of at least 0.8, False otherwise
+  Returns a set of overlapping relevantActorNames
   '''
-  if not relevantActors: return True
-  similarities = [findSimilarity(actorName, relevantActor) > threshold for relevantActor in relevantActors]
-  return bool(np.sum(similarities))
+  return bool(np.sum([findTokenSimilarity(actorName, ran) > threshold for ran in relevantActorNames]))
 
-def findSimilarity(string1, string2):
+def findTokenSimilarity(string1, string2):
   '''
   Finds the similarity between two given strings
   TODO: Think about optimization with a large amount of relevant actors
   '''
   return fuzz.token_set_ratio(string1, string2)
+
+def findNameSimilarity(name1, name2):
+  '''
+  Returns True if the double metaphone of the 
+  two names are the same
+  '''
+  return doublemetaphone(name1) == doublemetaphone(name2)

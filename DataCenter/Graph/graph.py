@@ -35,7 +35,10 @@ def addArticleToActors(articleID, actorIDs, db):
     if not actor:
       logging.error('Actor does not exist.')
       return False
-    result = db.actor.update_one(query, {'$push': { 'articleIDs': articleID}})
+    print('pushing', articleID)
+    result = db[Actor._collectionKey].update_one(query, {
+      '$push': { 'articleIDs': articleID}
+    })
     if not result.acknowledged:
       logging.error('graph.addArticleToActors: push not acknowledged')
       return False

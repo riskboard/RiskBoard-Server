@@ -1,4 +1,5 @@
 import logging
+from metaphone import doublemetaphone
 from DataCenter.Actor.ActorConnection import ActorConnection
 
 class Actor():
@@ -17,6 +18,8 @@ class Actor():
     '''
     self.actorType = actorType
     self.name = name
+    metaphone_name = doublemetaphone(name)
+    self._a_name = metaphone_name[0] + metaphone_name[1]
     self.locationID = locationID
     self.articleIDs = articleIDs
 
@@ -108,8 +111,10 @@ class Actor():
     if not db:
       logging.error('Actor.storeDB: No DB provided')
       return False
+    encoding = self._serialize()
     self._mongoID = self._collection.insert_one(self._serialize()).inserted_id
     self._id = str(self._mongoID)
+
     return self._id
 
   def _serialize(self):
@@ -118,9 +123,10 @@ class Actor():
     '''
     return {
       'name': self.name,
+      '_a_name': self._a_name,
       'actorType': self.actorType,
       'locationID': self.locationID,
-      'articleIDs': self.articleIDs
+      'articleIDs': self.articleIDs,
     }
 
   @classmethod

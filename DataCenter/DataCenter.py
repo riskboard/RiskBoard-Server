@@ -1,9 +1,10 @@
 import pandas as pd
 import logging
-from pymongo import MongoClient
+from pymongo import MongoClient, TEXT
 
 import DataCenter.Utils.dbutils as utils
 import DataCenter.Graph.graph as graph
+from DataCenter.Actor.Actor import Actor
 from DataCenter.Graph.extraction import extractAndFilterData
 import DataCenter.Tests.tests as tests
 
@@ -42,9 +43,7 @@ class DataCenter():
   
     print('INITIALIZING DATA CENTER')
 
-    # initializing DB client connection
-    self._client = MongoClient()
-    self._db = self._client.test_database
+    self._initDB()
 
     # initialize data analysis variables
     self.totalDataCount = 0
@@ -57,7 +56,7 @@ class DataCenter():
     self.relevantGeo = relevantGeo
 
     # initialize actors
-    self.relevantActors = utils.formatActors(relevantActors)
+    self.relevantActorNames = utils.formatActors(relevantActors)
 
     # run unit tests
     tests.runTests()
@@ -91,7 +90,7 @@ class DataCenter():
     '''
     Updates the database with information from a single day
     '''
-    print(f'* Updating {dateString} Information...')
+    print(f'* Processing {dateString} Information...')
     success, df = self.getDataFrame(dateString)
     if not success: return False
 
@@ -107,13 +106,13 @@ class DataCenter():
 
     print(f'  {dateString} processed.')
     print(f'\n* {dateString} Information: ')
-    print(f'** Relevant Data: {relevantCount/totalCount:.0%}')
+    print(f'** Relevant Data: {relevantCount/totalCount:.0%}\n\n')
     return True
 
   def updateRow(self, data):
     try:
       logging.log(0, 'DataCenter.updateRow')
-      data = extractAndFilterData(data, self.relevantActors, self.relevantGeo, self._db)
+      data = extractAndFilterData(data, self.relevantActorNames, self.relevantGeo, self._db)
       if not data: return False
 
       (articleID, actorIDs, locationIDs) = data
@@ -151,3 +150,11 @@ class DataCenter():
     TODO: Write a function that allows for a region to be removed
     '''
     return
+
+  def _initDB(self):
+    # initializing DB client connection
+    self._client = MongoClient()
+    self._db = self._client.test_database
+
+    # ensure querying on Actor DoubleMetaphone
+    self._db[Actor._collectionKey].create_index([('_a_name', TEXT)])
