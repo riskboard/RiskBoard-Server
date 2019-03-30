@@ -7,7 +7,6 @@ class Actor():
   Defines the Actor class, which can represent
   an organization, a person, or a notable group
 
-  TODO: Interface with MongoDB
   TODO: Add actor location
   '''
   _collectionKey='actor'

@@ -80,12 +80,12 @@ def rawToGDeltLocation(loc):
   loc_type, name, latitude, longitude = loc[0], loc[1], float(loc[4]), float(loc[5])
   return GDeltLocation(type=loc_type, name=name, latitude=latitude, longitude=longitude)
 
-def extractArticleID(url, actorIDs, peopleIDs, orgIDs, locations, db):
+def extractArticleID(url, actorIDs, peopleIDs, orgIDs, locationIDs, db):
   '''
   Creates a new Article class with the relevant
   people, organizations, and locations
   '''
-  return Article(url, actorIDs, peopleIDs, orgIDs, locations, db)._mongoID
+  return Article(url, actorIDs, peopleIDs, orgIDs, locationIDs, db=db)._mongoID
 
 def isRelevantArticle(actorNames, relevantActors, locations, relevantGeo):
   '''

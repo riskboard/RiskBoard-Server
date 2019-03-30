@@ -120,8 +120,6 @@ class DataCenter():
       # update actor Graph
       if not graph.updateGraph(articleID, actorIDs, self._db): return False
 
-      # TODO: Update actors in updateActorIDList and create newActorIds
-
       return True
     except Exception as e:
       logging.log(0, e)

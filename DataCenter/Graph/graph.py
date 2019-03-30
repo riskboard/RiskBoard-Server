@@ -35,7 +35,6 @@ def addArticleToActors(articleID, actorIDs, db):
     if not actor:
       logging.error('Actor does not exist.')
       return False
-    print('pushing', articleID)
     result = db[Actor._collectionKey].update_one(query, {
       '$push': { 'articleIDs': articleID}
     })

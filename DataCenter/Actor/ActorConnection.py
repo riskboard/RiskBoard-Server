@@ -8,7 +8,6 @@ class ActorConnection():
   and a 'strength'. It will have a sentiment attached as well.
 
   TODO: Implement sentiment in connection
-  TODO: Interface with MongoDB
   '''
   _collectionKey = 'actor_connection'
 
