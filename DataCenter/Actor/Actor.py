@@ -1,4 +1,5 @@
 import logging
+from bson import ObjectId
 from metaphone import doublemetaphone
 from DataCenter.Actor.ActorConnection import ActorConnection
 
@@ -11,7 +12,7 @@ class Actor():
   '''
   _collectionKey='actor'
 
-  def __init__(self, actorType, name, locationID=None, articleIDs=[], id=None, db=None, **kwds):
+  def __init__(self, actorType, name, locationID=None, articleIDs=[], connections={}, id=None, db=None, **kwds):
     '''
     Initializes an Actor object.
     '''
@@ -23,7 +24,7 @@ class Actor():
     self.articleIDs = articleIDs
 
     # Dictionary to ActorConnections
-    self.connections = {}
+    self.connections = connections
 
     if db:
       self._db = db
@@ -64,11 +65,12 @@ class Actor():
     if actor._id in self.connections:
       logging.error('Actor.createConnection: Connection already exists')
       return False
+
     connectionID = ActorConnection([self._mongoID, actor._mongoID], [articleID], db=self._db)._mongoID
 
     # push connection
-    if not self.createOneDirectionConnection(self._id, actor._id, connectionID): return False
-    if not self.createOneDirectionConnection(actor._id, self._id, connectionID): return False
+    if not self.createOneDirectionConnection(self._mongoID, actor._mongoID, connectionID): return False
+    if not self.createOneDirectionConnection(actor._mongoID, self._mongoID, connectionID): return False
 
     return True
 
@@ -78,7 +80,7 @@ class Actor():
     '''
     query = {'_id': primaryID}
     result = self._collection.update_one(query, {
-      '$set': {f'connections.{secondaryID}': connectionID}
+      '$set': {f'connections.{str(secondaryID)}': connectionID}
     })
     if not result.acknowledged:
       logging.error('Actor.createOneDirectionConnection: createConnection not acknowledged')
@@ -93,7 +95,7 @@ class Actor():
     if actor._id not in self.connections:
       logging.error('Actor.updateConnection: Connection does not exist')
       return False
-    query = {'_id': self.connections[actor._id]}
+    query = {'_id': ObjectId(self.connections[actor._mongoID])}
     collectionObj = self._collection.find_one(query)
     if not collectionObj:
       logging.error('Actor.updateConnection: Connection not in database')
@@ -126,6 +128,7 @@ class Actor():
       'actorType': self.actorType,
       'locationID': self.locationID,
       'articleIDs': self.articleIDs,
+      'connections': self.connections
     }
 
   @classmethod
@@ -135,4 +138,4 @@ class Actor():
     '''
     return cls(
       obj['actorType'], obj['name'], obj['locationID'],
-      obj['articleIDs'], obj['_id'], obj['_db'])
+      obj['articleIDs'], obj['connections'], obj['_id'], obj['_db'])
