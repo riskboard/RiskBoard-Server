@@ -4,8 +4,8 @@ import pygraphviz as pgv
 import matplotlib.pyplot as plt
 import logging
 
-from DataCenter.Actor.Actor import Actor
 from DataCenter.Actor.ActorConnection import ActorConnection
+from DataCenter.Actor.Actor import Actor
 
 def updateGraph(articleID, actorIDs, db):
   '''

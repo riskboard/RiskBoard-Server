@@ -3,6 +3,7 @@ from geopy.point import Point
 
 from DataCenter.DataCenter import DataCenter
 from DataCenter.Geo.GeoRectangle import GeoRectangle
+from DataCenter.Query.Query import Query
 
 if __name__ == '__main__':
   start_date = input('Desired Start Date: ')
@@ -20,7 +21,9 @@ if __name__ == '__main__':
   west = Point.parse_degrees(73, 58, 58.19, 'W')
   brazil = GeoRectangle(boundaries=(north, south, east, west), name='Brazil')
 
-  db = DataCenter(start_date, end_date, relevantGeo=[brazil], relevantActors=actors)
+  query = Query(geographies=[brazil], gkgThemes=['ENV_DEFORESTATION', 'ETH_INDIGINOUS', 'ENV_FORESTRY', 'PROPERTY_RIGHTS', 'UNGP_FORESTS_RIVERS_OCEANS', 'AGRICULTURE', 'FOOD_SECURITY', 'SELF_IDENTIFIED_HUMANITARIAN_CRISIS', 'SELF_IDENTIFIED_HUMAN_RIGHTS', 'SELF_IDENTIFIED_ATROCITY', 'SLFID_CIVIL_LIBERTIES', 'TAX_FOODSTAPLES', 'FOOD_STAPLE', 'UNSAFE_WORK_ENVIRONMENT', 'HUMAN_TRAFFICKING'])
+
+  db = DataCenter(start_date, end_date, query=query)
 
   print('Visualizing DataCenter...')
   db.visualizeGraph()

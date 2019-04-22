@@ -17,7 +17,7 @@ class DataCenter():
   TODO: Interface with MongoDB
   '''
 
-  def __init__(self, startDate, endDate, relevantGeo=None, relevantActors=None):
+  def __init__(self, startDate, endDate, query=None):
     '''
     Initializes a new DataCenter populated with data
     from the specified start date (inclusive) to the end date (exclusive)
@@ -53,10 +53,7 @@ class DataCenter():
     self.headers = utils.getSchemaHeaders()
 
     # initialize regions
-    self.relevantGeo = relevantGeo
-
-    # initialize actors
-    self.relevantActorNames = utils.formatActors(relevantActors)
+    self.query = query
 
     # run unit tests
     tests.runTests()
@@ -112,7 +109,7 @@ class DataCenter():
   def updateRow(self, data):
     try:
       logging.log(0, 'DataCenter.updateRow')
-      data = extractAndFilterData(data, self.relevantActorNames, self.relevantGeo, self._db)
+      data = extractAndFilterData(data, self.query, self._db)
       if not data: return False
 
       (articleID, actorIDs, locationIDs) = data

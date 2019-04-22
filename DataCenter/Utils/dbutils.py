@@ -68,4 +68,5 @@ def formatActors(relevantActors):
   '''
   returns a list of lowercase actor names
   '''
+  if not relevantActors: return None
   return [actor.lower() for actor in relevantActors]

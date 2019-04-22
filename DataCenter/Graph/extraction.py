@@ -1,6 +1,4 @@
-import numpy as np
 import logging
-from fuzzywuzzy import fuzz
 from metaphone import doublemetaphone
 
 from DataCenter.Article.Article import Article
@@ -10,20 +8,23 @@ from DataCenter.Geo.GDeltLocation import GDeltLocation
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
 
-def extractAndFilterData(data, relevantActorNames, relevantGeo, db):
+def extractAndFilterData(data, query, db):
   '''
   Extracts the url, people, organizations, and location from
   one row in the GKG dataframe
   '''
-  peopleNames = list(filter(lambda x: x!= 'nan', str(data['Persons']).split(';')))
-  orgNames = list(filter(lambda x: x != 'nan', str(data['Organizations']).split(';')))
+  peopleNames = extractDataList('Persons', data)
+  orgNames = extractDataList('Organizations', data)
+  
   actorNames = peopleNames+orgNames
-  if not len(actorNames): return False
+  if not len(actorNames):
+    return False
 
-  locationStr = str(data['Locations'])
-  locations = extractLocations(locationStr)
+  locations = extractLocations(data)
 
-  if not isRelevantArticle(actorNames, relevantActorNames, locations, relevantGeo): return False
+  gkgThemes = set(extractDataList('Themes', data))
+
+  if query and not query.filterArticle(locations, actorNames, gkgThemes): return False
 
   locationIDs = [loc.storeDB(db) for loc in locations]
 
@@ -35,6 +36,12 @@ def extractAndFilterData(data, relevantActorNames, relevantGeo, db):
   articleID = extractArticleID(url, actorIDs, peopleIDs, orgIDs, locationIDs, db)
 
   return articleID, actorIDs, locationIDs
+
+def extractDataList(fieldName, data):
+  '''
+  extracts list from fieldNames
+  '''
+  return list(filter(lambda x: x!= 'nan', str(data[fieldName]).split(';')))
 
 def extractActorIDs(actorType, actorNames, db):
   '''
@@ -62,10 +69,11 @@ def extractActorID(actorType, actorName, db):
   actorID = Actor(actorType, actorName, db=db)._mongoID
   return actorID
 
-def extractLocations(locationStr):
+def extractLocations(data):
   '''
   Exracts locations from a row in data
   '''
+  locationStr = str(data['Locations'])
   if locationStr == 'nan':
     return None
   else:
@@ -86,55 +94,3 @@ def extractArticleID(url, actorIDs, peopleIDs, orgIDs, locationIDs, db):
   people, organizations, and locations
   '''
   return Article(url, actorIDs, peopleIDs, orgIDs, locationIDs, db=db)._mongoID
-
-def isRelevantArticle(actorNames, relevantActors, locations, relevantGeo):
-  '''
-  Returns True if article is relevant
-  '''
-  return (hasLocationInGeographies(locations, relevantGeo) and hasRelevantActor(actorNames, relevantActors))
-
-def hasLocationInGeographies(locations, geographies):
-  '''
-  Returns True if locations has a location in geographies
-  '''
-  if not geographies or not locations: return True
-  return bool(np.sum([isLocationInGeographies(loc, geographies) for loc in locations]))
-
-def isLocationInGeographies(location, geographies):
-  '''
-  Returns True if location is in the geographies
-  '''
-  return bool(np.sum([inGeography(location, geo) for geo in geographies]))
-
-def inGeography(location, geography):
-  '''
-  Returns True if location is in the geography
-  '''
-  return geography.includes(location)
-
-def hasRelevantActor(actorNames, relevantActorNames):
-  '''
-  Returns True if there is a relevant Actor
-  '''
-  if not relevantActorNames: return True
-  return bool(np.sum([isRelevantActor(an, relevantActorNames) for an in actorNames]))
-
-def isRelevantActor(actorName, relevantActorNames, threshold=0.8):
-  '''
-  Returns a set of overlapping relevantActorNames
-  '''
-  return bool(np.sum([findTokenSimilarity(actorName, ran) > threshold for ran in relevantActorNames]))
-
-def findTokenSimilarity(string1, string2):
-  '''
-  Finds the similarity between two given strings
-  TODO: Think about optimization with a large amount of relevant actors
-  '''
-  return fuzz.token_set_ratio(string1, string2)
-
-def findNameSimilarity(name1, name2):
-  '''
-  Returns True if the double metaphone of the 
-  two names are the same
-  '''
-  return doublemetaphone(name1) == doublemetaphone(name2)
