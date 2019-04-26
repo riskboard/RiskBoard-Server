@@ -6,8 +6,8 @@ from DataCenter.Geo.GeoRectangle import GeoRectangle
 from DataCenter.Query.Query import Query
 
 if __name__ == '__main__':
-  start_date = input('Desired Start Date: ')
-  end_date = input('Desired End Date:   ')
+  start_date = input('Desired Start Date (YYYY MM DD): ')
+  end_date = input('Desired End Date (YYYY MM DD):   ')
 
   """
   Brazil Sample
