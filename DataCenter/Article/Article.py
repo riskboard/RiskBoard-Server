@@ -19,12 +19,13 @@ class Article():
   _collectionKey = 'article'
   _SENTENCE_COUNT = 4
 
-  def __init__(self, url, actorIDs=[], peopleIDs=[],
+  def __init__(self, url, date, actorIDs=[], peopleIDs=[],
                orgIDs=[], locationIDs=[], language=None,
                keywords=None, summary=None, id=None, db=None, **kwds):
     '''
     Initializes an Article class from a url.
     '''
+    self.date = date
     self.url = url
     self.actorIDs = actorIDs
     self.peopleIDs = peopleIDs
@@ -89,6 +90,7 @@ class Article():
     '''
     return {
       'url': self.url,
+      'date': self.date,
       'actorIDs': self.actorIDs,
       'peopleIDs': self.peopleIDs,
       'orgIDs': self.orgIDs,
@@ -104,6 +106,6 @@ class Article():
     Creates an Actor class from MongoDB object
     '''
     return cls(
-      obj['url'], obj['actorIDs'], obj['peopleIDs'],
+      obj['url'], obj['date'], obj['actorIDs'], obj['peopleIDs'],
       obj['orgIDs'], obj['locationIDs'], obj['language'],
       obj['keywords'], obj['summary'], obj['_id'], obj['_db'])

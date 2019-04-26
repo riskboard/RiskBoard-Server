@@ -8,7 +8,7 @@ from DataCenter.Geo.GDeltLocation import GDeltLocation
 TYPE_ORGANIZATION = 'organization'
 TYPE_PERSON = 'person'
 
-def extractAndFilterData(data, query, db):
+def extractAndFilterData(data, dateString, query, db):
   '''
   Extracts the url, people, organizations, and location from
   one row in the GKG dataframe
@@ -33,7 +33,7 @@ def extractAndFilterData(data, query, db):
   actorIDs = peopleIDs+orgIDs
 
   url = str(data['DocumentIdentifier'])
-  articleID = extractArticleID(url, actorIDs, peopleIDs, orgIDs, locationIDs, db)
+  articleID = extractArticleID(url, dateString, actorIDs, peopleIDs, orgIDs, locationIDs, db)
 
   return articleID, actorIDs, locationIDs
 
@@ -88,9 +88,9 @@ def rawToGDeltLocation(loc):
   loc_type, name, latitude, longitude = loc[0], loc[1], float(loc[4]), float(loc[5])
   return GDeltLocation(type=loc_type, name=name, latitude=latitude, longitude=longitude)
 
-def extractArticleID(url, actorIDs, peopleIDs, orgIDs, locationIDs, db):
+def extractArticleID(url, dateString, actorIDs, peopleIDs, orgIDs, locationIDs, db):
   '''
   Creates a new Article class with the relevant
   people, organizations, and locations
   '''
-  return Article(url, actorIDs, peopleIDs, orgIDs, locationIDs, db=db)._mongoID
+  return Article(url, dateString, actorIDs, peopleIDs, orgIDs, locationIDs, db=db)._mongoID

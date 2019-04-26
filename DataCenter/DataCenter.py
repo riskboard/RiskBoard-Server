@@ -96,7 +96,7 @@ class DataCenter():
     relevantCount = 0
 
     for ix, data in df.iterrows():
-      if self.updateRow(data): relevantCount += 1
+      if self.updateRow(data, dateString): relevantCount += 1
 
     self.totalDataCount += totalCount
     self.relevantDataCount += relevantCount
@@ -106,10 +106,10 @@ class DataCenter():
     print(f'** Relevant Data: {relevantCount/totalCount:.0%}\n\n')
     return True
 
-  def updateRow(self, data):
+  def updateRow(self, data, dateString):
     try:
       logging.log(0, 'DataCenter.updateRow')
-      data = extractAndFilterData(data, self.query, self._db)
+      data = extractAndFilterData(data, dateString, self.query, self._db)
       if not data: return False
 
       (articleID, actorIDs, locationIDs) = data
@@ -149,7 +149,7 @@ class DataCenter():
   def _initDB(self):
     # initializing DB client connection
     self._client = MongoClient()
-    self._db = self._client.test_database
+    self._db = self._client.test_database_4
 
     # ensure querying on Actor DoubleMetaphone
     self._db[Actor._collectionKey].create_index([('_a_name', TEXT)])
